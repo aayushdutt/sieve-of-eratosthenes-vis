@@ -33,11 +33,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
-  Tooltip as UITooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 // Prime family types
 type PrimeFamily = "all" | "twin" | "mersenne" | "fermat" | "sophie-germain";
@@ -52,7 +51,7 @@ interface PrimeNumber {
 
 export function SieveVisualizer() {
   const [maxNumber, setMaxNumber] = useState(100);
-  const [speed, setSpeed] = useState(50);
+  const [speed, setSpeed] = useState(100);
   const [numbers, setNumbers] = useState<PrimeNumber[]>([]);
   const [currentPrime, setCurrentPrime] = useState(2);
   const [isRunning, setIsRunning] = useState(false);
@@ -61,8 +60,6 @@ export function SieveVisualizer() {
   const [selectedFamily, setSelectedFamily] = useState<PrimeFamily>("all");
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedPrime, setSelectedPrime] = useState<number | null>(null);
-  const [showAlgorithmInfo, setShowAlgorithmInfo] = useState(false);
-  const [tooltipOpen, setTooltipOpen] = useState(false);
 
   // Add memoization for filtered numbers
   const deferredNumbers = useDeferredValue(numbers);
@@ -383,147 +380,6 @@ export function SieveVisualizer() {
     }));
   }, [deferredNumbers, selectedFamily]);
 
-  // Optimize the grid rendering for large numbers
-  const renderGrid = useMemo(() => {
-    const gridClass = getGridColumns();
-
-    if (filteredNumbers.length > 200) {
-      // For large datasets, use a more efficient rendering approach
-      return (
-        <div className={`grid ${gridClass} gap-2 justify-center`}>
-          {filteredNumbers.map((number, index) => {
-            const isHighlighted =
-              selectedFamily !== "all" &&
-              number.families.includes(selectedFamily);
-
-            return (
-              <div
-                key={index}
-                className={`
-                  flex items-center justify-center h-10 w-10 rounded-md text-sm font-medium
-                  ${
-                    number.value === currentPrime &&
-                    currentMultiple === 0 &&
-                    !isComplete
-                      ? "ring-2 ring-primary"
-                      : ""
-                  }
-                  ${
-                    number.value === currentMultiple && !isComplete
-                      ? "ring-2 ring-orange-500"
-                      : ""
-                  }
-                  ${
-                    number.state === "unmarked"
-                      ? "bg-muted text-muted-foreground"
-                      : number.state === "prime"
-                      ? isHighlighted
-                        ? "bg-purple-200 text-purple-900 dark:bg-purple-900 dark:text-purple-100 ring-2 ring-purple-500"
-                        : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-                      : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
-                  }
-                  cursor-pointer hover:ring-2 hover:ring-blue-400
-                  ${
-                    selectedPrime === number.value ? "ring-2 ring-blue-500" : ""
-                  }
-                `}
-                onClick={() =>
-                  setSelectedPrime(
-                    selectedPrime === number.value ? null : number.value
-                  )
-                }
-              >
-                {number.value}
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    // For smaller datasets, use the original rendering with animations
-    return (
-      <div className={`grid ${gridClass} gap-2 justify-center`}>
-        {filteredNumbers.map((number, index) => {
-          const isHighlighted =
-            selectedFamily !== "all" &&
-            number.families.includes(selectedFamily);
-
-          return (
-            <motion.div
-              key={index}
-              className={`
-                flex items-center justify-center h-10 w-10 rounded-md text-sm font-medium
-                ${
-                  number.value === currentPrime &&
-                  currentMultiple === 0 &&
-                  !isComplete
-                    ? "ring-2 ring-primary"
-                    : ""
-                }
-                ${
-                  number.value === currentMultiple && !isComplete
-                    ? "ring-2 ring-orange-500"
-                    : ""
-                }
-                ${
-                  number.state === "unmarked"
-                    ? "bg-muted text-muted-foreground"
-                    : number.state === "prime"
-                    ? isHighlighted
-                      ? "bg-purple-200 text-purple-900 dark:bg-purple-900 dark:text-purple-100 ring-2 ring-purple-500"
-                      : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-                    : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
-                }
-                cursor-pointer hover:ring-2 hover:ring-blue-400
-                ${selectedPrime === number.value ? "ring-2 ring-blue-500" : ""}
-              `}
-              initial={{ opacity: 0.6, scale: 0.9 }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-                backgroundColor:
-                  number.state === "unmarked"
-                    ? "#f1f5f9"
-                    : number.state === "prime"
-                    ? isHighlighted
-                      ? "#e9d5ff"
-                      : "#dcfce7"
-                    : "#fee2e2",
-              }}
-              transition={{ duration: 0.2 }}
-              onClick={() =>
-                setSelectedPrime(
-                  selectedPrime === number.value ? null : number.value
-                )
-              }
-            >
-              {number.value}
-            </motion.div>
-          );
-        })}
-      </div>
-    );
-  }, [
-    filteredNumbers,
-    getGridColumns,
-    currentPrime,
-    currentMultiple,
-    isComplete,
-    selectedFamily,
-    selectedPrime,
-  ]);
-
-  // Get the selected number details
-  const selectedNumberDetails = useMemo(() => {
-    if (selectedPrime === null) return null;
-
-    const number = numbers.find((n) => n.value === selectedPrime);
-    if (!number) return null;
-
-    return number;
-  }, [selectedPrime, numbers]);
-
   // Add this helper function to find factors
   const findFactors = useCallback((num: number): number[] => {
     const factors: number[] = [];
@@ -551,6 +407,286 @@ export function SieveVisualizer() {
     return [1, ...factors.sort((a, b) => a - b), num];
   }, []);
 
+  // Optimize the grid rendering for large numbers
+  const renderGrid = useMemo(() => {
+    const gridClass = getGridColumns();
+
+    if (filteredNumbers.length > 200) {
+      // For large datasets, use a more efficient rendering approach
+      return (
+        <div className={`grid ${gridClass} gap-2 justify-center`}>
+          {filteredNumbers.map((number, index) => {
+            const isHighlighted =
+              selectedFamily !== "all" &&
+              number.families.includes(selectedFamily);
+
+            return (
+              <Popover key={index}>
+                <PopoverTrigger asChild>
+                  <div
+                    className={`
+                      flex items-center justify-center h-10 w-10 rounded-md text-sm font-medium
+                      ${
+                        number.value === currentPrime &&
+                        currentMultiple === 0 &&
+                        !isComplete
+                          ? "ring-2 ring-primary"
+                          : ""
+                      }
+                      ${
+                        number.value === currentMultiple && !isComplete
+                          ? "ring-2 ring-orange-500"
+                          : ""
+                      }
+                      ${
+                        number.state === "unmarked"
+                          ? "bg-muted text-muted-foreground"
+                          : number.state === "prime"
+                          ? isHighlighted
+                            ? "bg-purple-200 text-purple-900 dark:bg-purple-900 dark:text-purple-100 ring-2 ring-purple-500"
+                            : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                          : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
+                      }
+                      cursor-pointer hover:ring-2 hover:ring-blue-400
+                      ${
+                        selectedPrime === number.value
+                          ? "ring-2 ring-blue-500"
+                          : ""
+                      }
+                    `}
+                  >
+                    {number.value}
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="top"
+                  align="center"
+                  className="p-4 w-auto max-w-[200px]"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-lg font-semibold">
+                        {number.value}
+                      </div>
+                      <Badge
+                        variant={
+                          number.state === "prime"
+                            ? "default"
+                            : number.state === "composite"
+                            ? "destructive"
+                            : "outline"
+                        }
+                        className="text-xs"
+                      >
+                        {number.state === "prime"
+                          ? "Prime"
+                          : number.state === "composite"
+                          ? "Composite"
+                          : "Unmarked"}
+                      </Badge>
+                    </div>
+
+                    {number.gap && number.state === "prime" && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Gap:</span>
+                        <span>{number.gap}</span>
+                      </div>
+                    )}
+
+                    {number.state === "composite" && (
+                      <div className="text-sm">
+                        <div className="text-muted-foreground mb-1">
+                          Factors:
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {findFactors(number.value).map((factor, i) => (
+                            <Badge
+                              key={i}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {factor}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {number.families.length > 0 && (
+                      <div className="text-sm">
+                        <div className="text-muted-foreground mb-1">
+                          Special families:
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {number.families.map((family) => (
+                            <Badge
+                              key={family}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {family === "twin" && "Twin"}
+                              {family === "mersenne" && "Mersenne"}
+                              {family === "fermat" && "Fermat"}
+                              {family === "sophie-germain" && "Sophie Germain"}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // For smaller datasets, use the original rendering with animations
+    return (
+      <div className={`grid ${gridClass} gap-2 justify-center`}>
+        {filteredNumbers.map((number, index) => {
+          const isHighlighted =
+            selectedFamily !== "all" &&
+            number.families.includes(selectedFamily);
+
+          return (
+            <Popover key={index}>
+              <PopoverTrigger asChild>
+                <motion.div
+                  className={`
+                    flex items-center justify-center h-10 w-10 rounded-md text-sm font-medium
+                    ${
+                      number.value === currentPrime &&
+                      currentMultiple === 0 &&
+                      !isComplete
+                        ? "ring-2 ring-primary"
+                        : ""
+                    }
+                    ${
+                      number.value === currentMultiple && !isComplete
+                        ? "ring-2 ring-orange-500"
+                        : ""
+                    }
+                    ${
+                      number.state === "unmarked"
+                        ? "bg-muted text-muted-foreground"
+                        : number.state === "prime"
+                        ? isHighlighted
+                          ? "bg-purple-200 text-purple-900 dark:bg-purple-900 dark:text-purple-100 ring-2 ring-purple-500"
+                          : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                        : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
+                    }
+                    cursor-pointer hover:ring-2 hover:ring-blue-400
+                    ${
+                      selectedPrime === number.value
+                        ? "ring-2 ring-blue-500"
+                        : ""
+                    }
+                  `}
+                  initial={{ opacity: 0.6, scale: 0.9 }}
+                  animate={{
+                    opacity: 1,
+                    scale: 1,
+                    backgroundColor:
+                      number.state === "unmarked"
+                        ? "#f1f5f9"
+                        : number.state === "prime"
+                        ? isHighlighted
+                          ? "#e9d5ff"
+                          : "#dcfce7"
+                        : "#fee2e2",
+                  }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {number.value}
+                </motion.div>
+              </PopoverTrigger>
+              <PopoverContent
+                side="top"
+                align="center"
+                className="p-4 w-auto max-w-[200px]"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-lg font-semibold">{number.value}</div>
+                    <Badge
+                      variant={
+                        number.state === "prime"
+                          ? "default"
+                          : number.state === "composite"
+                          ? "destructive"
+                          : "outline"
+                      }
+                      className="text-xs"
+                    >
+                      {number.state === "prime"
+                        ? "Prime"
+                        : number.state === "composite"
+                        ? "Composite"
+                        : "Unmarked"}
+                    </Badge>
+                  </div>
+
+                  {number.gap && number.state === "prime" && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Gap:</span>
+                      <span>{number.gap}</span>
+                    </div>
+                  )}
+
+                  {number.state === "composite" && (
+                    <div className="text-sm">
+                      <div className="text-muted-foreground mb-1">Factors:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {findFactors(number.value).map((factor, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">
+                            {factor}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {number.families.length > 0 && (
+                    <div className="text-sm">
+                      <div className="text-muted-foreground mb-1">
+                        Special families:
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {number.families.map((family) => (
+                          <Badge
+                            key={family}
+                            variant="secondary"
+                            className="text-xs"
+                          >
+                            {family === "twin" && "Twin"}
+                            {family === "mersenne" && "Mersenne"}
+                            {family === "fermat" && "Fermat"}
+                            {family === "sophie-germain" && "Sophie Germain"}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          );
+        })}
+      </div>
+    );
+  }, [
+    filteredNumbers,
+    getGridColumns,
+    currentPrime,
+    currentMultiple,
+    isComplete,
+    selectedFamily,
+    selectedPrime,
+    findFactors,
+  ]);
+
   return (
     <div className="flex flex-col items-center gap-8">
       <Card className="w-full max-w-4xl">
@@ -558,49 +694,49 @@ export function SieveVisualizer() {
           <div className="flex flex-col gap-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Sieve of Eratosthenes</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAlgorithmInfo(!showAlgorithmInfo)}
-                className="flex items-center gap-1"
-              >
-                <Info className="h-4 w-4" />
-                <span>How it works</span>
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    <Info className="h-4 w-4" />
+                    <span>How it works</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4">
+                  <h3 className="font-medium mb-2">
+                    How the Sieve of Eratosthenes Works:
+                  </h3>
+                  <ol className="list-decimal pl-5 space-y-1">
+                    <li>
+                      Start with all numbers from 2 to n marked as potential
+                      primes.
+                    </li>
+                    <li>
+                      Take the smallest unmarked number (starting with 2), mark
+                      it as prime.
+                    </li>
+                    <li>
+                      Mark all multiples of that prime as composite (not prime).
+                    </li>
+                    <li>
+                      Move to the next unmarked number and repeat steps 2-3.
+                    </li>
+                    <li>
+                      When all numbers have been processed, the remaining
+                      unmarked numbers are prime.
+                    </li>
+                  </ol>
+                  <p className="mt-2 text-muted-foreground">
+                    This algorithm efficiently finds all prime numbers up to any
+                    given limit by iteratively marking the multiples of each
+                    prime, starting from 2.
+                  </p>
+                </PopoverContent>
+              </Popover>
             </div>
-
-            {showAlgorithmInfo && (
-              <div className="p-4 border rounded-lg bg-muted/50 text-sm">
-                <h3 className="font-medium mb-2">
-                  How the Sieve of Eratosthenes Works:
-                </h3>
-                <ol className="list-decimal pl-5 space-y-1">
-                  <li>
-                    Start with all numbers from 2 to n marked as potential
-                    primes.
-                  </li>
-                  <li>
-                    Take the smallest unmarked number (starting with 2), mark it
-                    as prime.
-                  </li>
-                  <li>
-                    Mark all multiples of that prime as composite (not prime).
-                  </li>
-                  <li>
-                    Move to the next unmarked number and repeat steps 2-3.
-                  </li>
-                  <li>
-                    When all numbers have been processed, the remaining unmarked
-                    numbers are prime.
-                  </li>
-                </ol>
-                <p className="mt-2 text-muted-foreground">
-                  This algorithm efficiently finds all prime numbers up to any
-                  given limit by iteratively marking the multiples of each
-                  prime, starting from 2.
-                </p>
-              </div>
-            )}
 
             <div className="flex flex-col gap-2">
               <div className="flex justify-between">
@@ -616,7 +752,7 @@ export function SieveVisualizer() {
                 onValueChange={(value) => setMaxNumber(value[0])}
                 disabled={isRunning}
               />
-              <p className="text-xs text-muted-foreground">10-300 numbers</p>
+              <p className="text-xs text-muted-foreground">10-500 numbers</p>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -701,69 +837,6 @@ export function SieveVisualizer() {
             {renderGrid}
           </div>
 
-          {/* Display selected number details */}
-          {selectedNumberDetails && (
-            <div className="p-4 border rounded-lg bg-background">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-medium">
-                  Number: {selectedNumberDetails.value}
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedPrime(null)}
-                  className="h-8 w-8 p-0"
-                >
-                  ×
-                </Button>
-              </div>
-
-              <div className="text-sm mb-2">
-                <span className="font-medium">Status:</span>{" "}
-                {selectedNumberDetails.state === "prime"
-                  ? "Prime"
-                  : selectedNumberDetails.state === "composite"
-                  ? "Composite"
-                  : "Unmarked"}
-              </div>
-
-              {selectedNumberDetails.gap &&
-                selectedNumberDetails.state === "prime" && (
-                  <div className="text-sm mb-2">
-                    <span className="font-medium">
-                      Gap from previous prime:
-                    </span>{" "}
-                    {selectedNumberDetails.gap}
-                  </div>
-                )}
-
-              {selectedNumberDetails.state === "composite" && (
-                <div className="text-sm mb-2">
-                  <span className="font-medium">Factors include:</span>{" "}
-                  {findFactors(selectedNumberDetails.value).join(", ")}
-                </div>
-              )}
-
-              {selectedNumberDetails.families.length > 0 && (
-                <div className="mt-2">
-                  <div className="text-sm font-medium mb-1">
-                    Special prime families:
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedNumberDetails.families.map((family) => (
-                      <Badge key={family} variant="outline">
-                        {family === "twin" && "Twin Prime"}
-                        {family === "mersenne" && "Mersenne Prime"}
-                        {family === "fermat" && "Fermat Prime"}
-                        {family === "sophie-germain" && "Sophie Germain Prime"}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="flex flex-wrap gap-4 justify-center">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-muted rounded"></div>
@@ -841,34 +914,28 @@ export function SieveVisualizer() {
                     <h3 className="text-lg font-medium">
                       Prime Number Theorem Comparison
                     </h3>
-                    <TooltipProvider>
-                      <UITooltip
-                        open={tooltipOpen}
-                        onOpenChange={setTooltipOpen}
-                      >
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => setTooltipOpen(!tooltipOpen)}
-                          >
-                            <Info className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="left"
-                          align="center"
-                          className="max-w-xs"
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
                         >
-                          <p className="text-sm">
-                            The Prime Number Theorem states that π(n), the
-                            number of primes less than or equal to n, is
-                            approximately n/ln(n) for large n.
-                          </p>
-                        </TooltipContent>
-                      </UITooltip>
-                    </TooltipProvider>
+                          <Info className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        side="left"
+                        align="center"
+                        className="max-w-xs"
+                      >
+                        <p className="text-sm">
+                          The Prime Number Theorem states that π(n), the number
+                          of primes less than or equal to n, is approximately
+                          n/ln(n) for large n.
+                        </p>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="h-[300px]">
